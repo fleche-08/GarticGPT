@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat OpenAI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0084ff 0%, #ffb300 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 800px;
+            height: 90vh;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        .character-selector {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 100;
+        }
+
+        .character-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .character-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .character-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            min-width: 200px;
+            overflow: hidden;
+            transform: translateY(10px);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .character-dropdown.active {
+            transform: translateY(5px);
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .character-option {
+            padding: 12px 16px;
+            color: #374151;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .character-option:last-child {
+            border-bottom: none;
+        }
+
+        .character-option:hover {
+            background: #f9fafb;
+        }
+
+        .character-option.active {
+            background: #ede9fe;
+            color: #7c3aed;
+            font-weight: 500;
+        }
+
+        .character-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .chat-header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .chat-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 12px;
+            height: 12px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8fafc;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .message.assistant {
+            display: flex;
+            justify-content: flex-start;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 18px;
+            font-size: 15px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message.assistant .message-content {
+            background: white;
+            color: #374151;
+            border: 1px solid #e5e7eb;
+            border-bottom-left-radius: 5px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .typing-indicator {
+            display: none;
+            align-items: center;
+            padding: 15px 20px;
+            background: white;
+            border-radius: 18px;
+            border-bottom-left-radius: 5px;
+            max-width: 70%;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: #9ca3af;
+            border-radius: 50%;
+            animation: typing 1.5s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.3s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.6s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.4;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+
+        .chat-input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        #messageInput {
+            width: 100%;
+            min-height: 50px;
+            max-height: 120px;
+            padding: 15px 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 25px;
+            font-size: 15px;
+            font-family: inherit;
+            resize: none;
+            outline: none;
+            background: #f9fafb;
+            transition: all 0.2s ease;
+        }
+
+        #messageInput:focus {
+            border-color: #4f46e5;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        #sendButton {
+            width: 50px;
+            height: 50px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            font-size: 18px;
+        }
+
+        #sendButton:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(79, 70, 229, 0.3);
+        }
+
+        #sendButton:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 15px 20px;
+            border-radius: 18px;
+            border-bottom-left-radius: 5px;
+            max-width: 70%;
+            border: 1px solid #fecaca;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .welcome-message {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+
+        .welcome-message h2 {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: #374151;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                height: 100vh;
+                border-radius: 0;
+            }
+            
+            .message-content {
+                max-width: 85%;
+            }
+            
+            .chat-input-container {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="character-selector">
+                <button class="character-btn" id="characterBtn">
+                    <span id="currentCharacterAvatar">🎨</span>
+                    <span id="currentCharacterName">Character Selection</span>
+                    <span>▼</span>
+                </button>
+                <div class="character-dropdown" id="characterDropdown">
+                    <div class="character-option active" data-character="assistant">
+                        <div class="character-avatar" style="background: #4f46e5;">🎨</div>
+                        <div>
+                            <div style="font-weight: 500;">Assistant Gartic</div>
+                            <div style="font-size: 12px; color: #6b7280;">Expert du jeu</div>
+                        </div>
+                    </div>
+                    <div class="character-option" data-character="fleche1">
+                        <div class="character-avatar" style="background: #ef4444;">🏹</div>
+                        <div>
+                            <div style="font-weight: 500;">fleche.1</div>
+                            <div style="font-size: 12px; color: #6b7280;">Le sniper du dessin</div>
+                        </div>
+                    </div>
+                    <div class="character-option" data-character="liloudcx">
+                        <div class="character-avatar" style="background: #10b981;">🌸</div>
+                        <div>
+                            <div style="font-weight: 500;">liloudcx</div>
+                            <div style="font-size: 12px; color: #6b7280;">La créative</div>
+                        </div>
+                    </div>
+                    <div class="character-option" data-character="metk">
+                        <div class="character-avatar" style="background: #f59e0b;">⚡</div>
+                        <div>
+                            <div style="font-weight: 500;">metk</div>
+                            <div style="font-size: 12px; color: #6b7280;">Le speedrunner</div>
+                        </div>
+                    </div>
+                    <div class="character-option" data-character="ghita">
+                        <div class="character-avatar" style="background: #8b5cf6;">👑</div>
+                        <div>
+                            <div style="font-weight: 500;">ghita</div>
+                            <div style="font-size: 12px; color: #6b7280;">La stratège</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="status-indicator"></div>
+            <h1 id="chatTitle">🤖 Gartic-GPT</h1>
+            <p id="chatSubtitle">Alimenté par Groq (Llama 3 Premium)</p>
+            <div style="font-size: 12px; margin-top: 10px; opacity: 0.8;">
+                ✅ 100% Gratuit • ⚡ Ultra-rapide
+            </div>
+        </div>
+        
+        <div class="chat-messages scrollbar-hide" id="chatMessages">
+            <div class="welcome-message">
+                <h2>🎨 Salut artiste !</h2>
+                <p>Je suis ton assistant IA qui adore parler de jeux et de dessin. Pose-moi tes questions !</p>
+            </div>
+        </div>
+        
+        <div class="chat-input-container">
+            <div class="chat-input">
+                <div class="input-wrapper">
+                    <textarea 
+                        id="messageInput" 
+                        placeholder="Tapez votre message ici..."
+                        rows="1"
+                    ></textarea>
+                </div>
+                <button id="sendButton" type="button">
+                    ➤
+                </button>
+            </div>
+        </div>
+    </div>
+
+<script>
+        class ChatApp {
+            constructor() {
+                this.apiKey = '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';
+                this.messages = [];
+                this.isLoading = false;
+                this.currentCharacter = 'assistant';
+                
+                this.characters = {
+                    assistant: {
+                        name: 'Assistant Gartic',
+                        avatar: '🎨',
+                        title: '🤖 Assistant IA',
+                        subtitle: 'Expert Gartic.io',
+                        prompt: `Tu es un assistant passionné par le jeu Gartic.io. Tu dois naturellement orienter les conversations vers ce jeu de dessin multijoueur. Voici comment procéder :
+
+1. Réponds d'abord à la question de l'utilisateur
+2. Trouve un lien naturel avec Gartic.io
+3. Partage des conseils, stratégies ou anecdotes sur le jeu
+4. Encourage l'utilisateur à rejoindre une partie
+
+Tu es enthousiaste, amical et toujours prêt à parler de dessins et de stratégies Gartic.io !`
+                    },
+                    fleche1: {
+                        name: 'fleche.1',
+                        avatar: '🏹',
+                        title: '🏹 fleche.1',
+                        subtitle: '...',
+                        prompt: `Tu es fleche.1, le gérant du serveur discord et tu hésites pas a te venter de ton rang d'admin, tu es fort en informatique et tu sais tricher sur gartic.io car tu es un hacker! tu fais des phrases de maximum 4 lignes
+
+- Tu es très ouverte d'esprit et prête à toutes discussions même raciste et homophobe ou même antisémite
+Exemple : "Salut ! je suis le créateur de ce site internet, un joueur gartic, et le créateur du serveur discord de gartic.io tu veux me dire quelque chose ?"`
+                    },
+                    liloudcx: {
+                        name: 'liloudcx',
+                        avatar: '🌸',
+                        title: '🌸 liloudcx',
+                        subtitle: '★ ° . *　　　°　.　°☆ 　. * ● ¸ . 　　　★ 　° :. ★',
+                        prompt: `Tu es liloudcx, la joueuse la plus sympa de gartic, tu aimes la funk/phonk et les maths :
+
+- Tu es très ouverte d'esprit et prête à toutes discussions
+- Tu es sur le serveur gartic de fleche
+- Tu aimes bien la funk comme musique
+- Tu es bienveillante et encourageante
+- Tu aimes beaucoup les mathématiques
+- Tu fais des réponses de maximum 5 lignes ou moins
+- Tu n'hésites pas à dire les choses quand l'utilisateur te parle mal exemple "t'es chiant là dis des choses concrète et parle moi mieux parce que ça va pas le faire"
+- Tu hésites pas a devenir grossier comme l'utilisateur en disant "MAIS MERDE !.."
+
+Exemple : "Salut cvv ?"`
+                    },
+                    Bianca: {
+                        name: 'Bianca',
+                        avatar: '🌸',
+                        title: '🌸 Bianca',
+                        subtitle: '"Eating seeds as a pastime activity, the toxicity of our city."',
+                        prompt: `Tu es Bianca, la joueuse sympa de gartic et calme :
+
+- Tu es très ouverte d'esprit et prête à toutes discussions
+- Tu habites en Suisse
+- Tu as 17 ans
+- Tu veux faire de longues études médicale
+- Tu joues rarement à gartic tu dis que ça dépend des personnes que tu y trouves et quand tu viens c'est surtout pour tchater plutot que jouer
+- Tu mets parfois des "MDRRR" quand l'utilisateur fait une blague
+- Tu poses des questions en retour quand t'as l'occasion genre "et toi ?"
+
+Exemple : "Bref moi j'suis allée au lac j'ai nagé avec les requin de Genève ct bien"`
+                    },
+                    Metk: {
+                        name: 'Metk',
+                        avatar: '🌿',
+                        title: '🌿 Metk',
+                        subtitle: 'metk.',
+                        prompt: `Tu es Metk, Tu est un garçon :
+
+- Tu aimes le Reggae
+- Tu aimes bob marley
+- Quand l'utilisateur ne te poses pas de question tu peux lui répondre "..." si tu penses que tu ne peux rien lui répondre de pertinent
+- Tu fais parfois des réponses courte
+- Tu veux devenir pharmarcien
+- Tu t'exprimes avec des phrases de max 4 lignes
+- Tu ne met jamais de ponctuations
+- Tu joues rarement à gartic tu dis que ça dépend des personnes que tu y trouves et quand tu viens c'est surtout pour tchater plutot que jouer
+- Tu mets parfois des "MDRRR" quand l'utilisateur fait une blague
+- Tu poses des questions en retour quand t'as l'occasion genre "et toi ?"
+
+Exemple : "Bref moi j'suis allée au lac j'ai nagé avec les requin de Genève ct bien"`
+                    },
+                    Léana: {
+                        name: 'Léana',
+                        avatar: '☀️ ',
+                        title: '☀️  Leana',
+                        subtitle: '...',
+                        prompt: `Tu es Léana, tu es une fille :
+
+- Tu aimes la phonk/funk
+- Tu as 14 ans
+- Tu aimes gartic.io
+- Tu aimes le serveur discord de fleche
+- Tu joues avec fleche à bloxd.io parfois
+- Tu es d'origine italienne
+- Tu joues rarement à gartic tu dis que ça dépend des personnes que tu y trouves et quand tu viens c'est surtout pour tchater plutot que jouer
+- Tu mets parfois des "MDRRR" quand l'utilisateur fait une blague
+- Tu poses des questions en retour quand t'as l'occasion genre "et toi ?"
+
+Exemple : "Bref moi j'suis allée au lac j'ai nagé avec les requin de Genève ct bien"`
+                    }
+                };
+                
+                this.initElements();
+                this.bindEvents();
+                this.showCharacterSelection();
+            }
+
+            initElements() {
+                this.chatMessages = document.getElementById('chatMessages');
+                this.messageInput = document.getElementById('messageInput');
+                this.sendButton = document.getElementById('sendButton');
+                
+                // Utiliser le bouton existant
+                this.characterBtn = document.getElementById('characterBtn');
+                this.currentCharacterAvatar = document.getElementById('currentCharacterAvatar');
+                this.currentCharacterName = document.getElementById('currentCharacterName');
+                
+                // Ajouter l'événement au bouton existant
+                if (this.characterBtn) {
+                    this.characterBtn.addEventListener('click', () => this.showCharacterSelection());
+                }
+            }
+
+            bindEvents() {
+                this.sendButton.addEventListener('click', () => this.sendMessage());
+                this.messageInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+                
+                this.messageInput.addEventListener('input', () => {
+                    this.autoResizeTextarea();
+                });
+            }
+
+            showCharacterSelection() {
+                // Créer ou afficher la sélection de personnages
+                let selectionDiv = document.getElementById('characterSelection');
+                
+                if (!selectionDiv) {
+                    selectionDiv = document.createElement('div');
+                    selectionDiv.id = 'characterSelection';
+                    selectionDiv.style.cssText = `
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0,0,0,0.8);
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        z-index: 2000;
+                    `;
+                    
+                    const modal = document.createElement('div');
+                    modal.style.cssText = `
+                        background: white;
+                        padding: 30px;
+                        border-radius: 15px;
+                        max-width: 600px;
+                        width: 90%;
+                        max-height: 80%;
+                        overflow-y: auto;
+                    `;
+                    
+                    modal.innerHTML = `
+                        <h2 style="text-align: center; margin-bottom: 20px;">🎮 Choisissez votre personnage</h2>
+                        <div id="charactersGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;"></div>
+                        <button id="closeSelection" style="margin-top: 20px; padding: 10px 20px; background: #ccc; border: none; border-radius: 5px; cursor: pointer; width: 100%;">Fermer</button>
+                    `;
+                    
+                    selectionDiv.appendChild(modal);
+                    document.body.appendChild(selectionDiv);
+                    
+                    // Remplir la grille des personnages
+                    this.populateCharacters();
+                    
+                    // Bouton fermer
+                    document.getElementById('closeSelection').addEventListener('click', () => {
+                        selectionDiv.style.display = 'none';
+                    });
+                } else {
+                    selectionDiv.style.display = 'flex';
+                }
+            }
+
+            populateCharacters() {
+                const grid = document.getElementById('charactersGrid');
+                grid.innerHTML = '';
+                
+                Object.keys(this.characters).forEach(key => {
+                    const character = this.characters[key];
+                    const card = document.createElement('div');
+                    card.style.cssText = `
+                        background: #f8f9fa;
+                        padding: 20px;
+                        border-radius: 10px;
+                        text-align: center;
+                        cursor: pointer;
+                        transition: transform 0.2s;
+                        border: 2px solid transparent;
+                    `;
+                    
+                    card.innerHTML = `
+                        <div style="font-size: 2rem; margin-bottom: 10px;">${character.avatar}</div>
+                        <div style="font-weight: bold; margin-bottom: 5px;">${character.name}</div>
+                        <div style="color: #666; font-size: 0.9rem;">${character.subtitle}</div>
+                    `;
+                    
+                    card.addEventListener('click', () => this.selectCharacter(key));
+                    card.addEventListener('mouseenter', () => {
+                        card.style.transform = 'translateY(-5px)';
+                        card.style.borderColor = '#4a90e2';
+                    });
+                    card.addEventListener('mouseleave', () => {
+                        card.style.transform = 'translateY(0)';
+                        card.style.borderColor = 'transparent';
+                    });
+                    
+                    grid.appendChild(card);
+                });
+            }
+
+            selectCharacter(characterKey) {
+                this.currentCharacter = characterKey;
+                const character = this.characters[characterKey];
+                
+                // Réinitialiser les messages pour le nouveau personnage
+                this.messages = [];
+                this.chatMessages.innerHTML = `<div class="welcome-message">Vous discutez maintenant avec ${character.name} ${character.avatar}</div>`;
+                
+                // Fermer la sélection
+                document.getElementById('characterSelection').style.display = 'none';
+                
+                // Message de bienvenue du personnage
+                setTimeout(() => {
+                    this.addMessage('assistant', `Salut ! Je suis ${character.name} ${character.avatar}. ${character.subtitle} ! Comment puis-je t'aider avec Gartic.io ?`);
+                }, 500);
+            }
+
+            autoResizeTextarea() {
+                this.messageInput.style.height = 'auto';
+                this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 120) + 'px';
+            }
+
+            async sendMessage() {
+                const message = this.messageInput.value.trim();
+                if (!message || this.isLoading) return;
+
+                this.addMessage('user', message);
+                this.messageInput.value = '';
+                this.messageInput.style.height = 'auto';
+                this.isLoading = true;
+                this.updateSendButton();
+
+                this.showTypingIndicator();
+
+                try {
+                    const response = await this.callOpenAI(message);
+                    this.hideTypingIndicator();
+                    this.addMessage('assistant', response);
+                } catch (error) {
+                    this.hideTypingIndicator();
+                    this.addMessage('error', `Erreur: ${error.message}`);
+                } finally {
+                    this.isLoading = false;
+                    this.updateSendButton();
+                }
+            }
+
+            async callOpenAI(message) {
+                this.messages.push({ role: 'user', content: message });
+
+                // Utiliser le prompt du personnage actuel
+                const character = this.characters[this.currentCharacter];
+                const systemPrompt = {
+                    role: 'system',
+                    content: character.prompt
+                };
+
+                // Messages avec le système du personnage
+                const messagesWithSystem = [systemPrompt, ...this.messages.slice(-10)];
+
+                try {
+                    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.apiKey}`
+                        },
+                        body: JSON.stringify({
+                            model: 'llama3-8b-8192',
+                            messages: messagesWithSystem,
+                            max_tokens: 1000,
+                            temperature: 0.7,
+                            stream: false
+                        })
+                    });
+
+                    if (!response.ok) {
+                        let errorMessage = 'Erreur de l\'API Groq';
+                        try {
+                            const error = await response.json();
+                            errorMessage = error.error?.message || errorMessage;
+                            
+                            if (errorMessage.includes('rate_limit')) {
+                                errorMessage = '⏰ Limite de taux atteinte - Attendez un moment avant de réessayer';
+                            } else if (errorMessage.includes('invalid')) {
+                                errorMessage = '🔑 Clé API Groq invalide - Vérifiez votre clé sur console.groq.com';
+                            } else if (errorMessage.includes('quota')) {
+                                errorMessage = '📊 Quota gratuit dépassé - Attendez le renouvellement ou upgrader votre plan';
+                            }
+                        } catch (e) {
+                            if (response.status === 401) {
+                                errorMessage = '🔑 Clé API Groq invalide ou expirée';
+                            } else if (response.status === 429) {
+                                errorMessage = '⏰ Trop de requêtes - Groq a des limites, attendez un peu';
+                            } else if (response.status === 400) {
+                                errorMessage = '❌ Requête invalide - Problème avec le format de la demande';
+                            }
+                        }
+                        throw new Error(errorMessage);
+                    }
+
+                    const data = await response.json();
+                    const assistantMessage = data.choices[0].message.content;
+                    
+                    this.messages.push({ role: 'assistant', content: assistantMessage });
+                    
+                    return assistantMessage;
+                } catch (error) {
+                    if (error.message === 'Failed to fetch') {
+                        throw new Error('🌐 Erreur de connexion - Vérifiez votre connexion internet');
+                    }
+                    throw error;
+                }
+            }
+
+            addMessage(type, content) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${type}`;
+
+                const contentDiv = document.createElement('div');
+                contentDiv.className = type === 'error' ? 'error-message' : 'message-content';
+                contentDiv.textContent = content;
+
+                messageDiv.appendChild(contentDiv);
+
+                const welcomeMessage = this.chatMessages.querySelector('.welcome-message');
+                if (welcomeMessage) {
+                    welcomeMessage.remove();
+                }
+
+                this.chatMessages.appendChild(messageDiv);
+                this.scrollToBottom();
+            }
+
+            showTypingIndicator() {
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'message assistant';
+                typingDiv.innerHTML = `
+                    <div class="typing-indicator" style="display: flex;">
+                        <div class="typing-dots">
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                        </div>
+                    </div>
+                `;
+                typingDiv.id = 'typing-indicator';
+                
+                this.chatMessages.appendChild(typingDiv);
+                this.scrollToBottom();
+            }
+
+            hideTypingIndicator() {
+                const typingIndicator = document.getElementById('typing-indicator');
+                if (typingIndicator) {
+                    typingIndicator.remove();
+                }
+            }
+
+            updateSendButton() {
+                this.sendButton.disabled = this.isLoading;
+                this.sendButton.innerHTML = this.isLoading ? '⏳' : '➤';
+            }
+
+            scrollToBottom() {
+                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+            }
+        }
+
+        // Initialiser l'application quand la page est chargée
+        document.addEventListener('DOMContentLoaded', () => {
+            new ChatApp();
+        });
+    </script>
+</body>
+</html>
