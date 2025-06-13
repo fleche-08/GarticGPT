@@ -664,9 +664,51 @@ Exemple : "Att jvais te montrer une musique que j'aime trop regarde : https://ww
                     `;
                     
                     modal.innerHTML = `
-                        <h2 style="text-align: center; margin-bottom: 20px;">🎮 Choisissez votre personnage</h2>
-                        <div id="charactersGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;"></div>
-                        <button id="closeSelection" style="margin-top: 20px; padding: 10px 20px; background: #ccc; border: none; border-radius: 5px; cursor: pointer; width: 100%;">Fermer</button>
+<h2 style="text-align: center; margin-bottom: 20px;">🎮 Choisissez votre personnage</h2>
+<div id="charactersGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;"></div>
+
+<style>
+  #closeSelection {
+    margin-top: 20px;
+    padding: 12px 24px;
+    width: 100%;
+    background: linear-gradient(135deg, #3b82f6, #60a5fa);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    box-shadow: 0 6px 12px rgba(0, 123, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+
+  #closeSelection::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -75%;
+    width: 50%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.15);
+    transform: skewX(-20deg);
+    transition: left 0.5s ease;
+  }
+
+  #closeSelection:hover::before {
+    left: 125%;
+  }
+
+  #closeSelection:hover {
+    transform: scale(1.04);
+    box-shadow: 0 10px 20px rgba(59, 130, 246, 0.5);
+  }
+</style>
+
+<button id="closeSelection">✖️ Fermer</button>
                     `;
                     
                     selectionDiv.appendChild(modal);
